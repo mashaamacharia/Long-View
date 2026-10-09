@@ -1,0 +1,29 @@
+# secrets
+.env
+*.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# node
+node_modules/
+dist/
+.vite/
+
+# data / runtime
+pgdata/
+ollama_data/
+backend/evals/results/*
+!backend/evals/results/.gitkeep
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/

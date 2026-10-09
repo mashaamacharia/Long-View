@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "learner-intelligence": {
+      "transport": "streamable_http",
+      "url": "http://mcp-server:8001/mcp",
+      "note": "OUR server: timeline, patterns, evidence, review flags, approval-gated profile updates"
+    },
+    "documents": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data/docs"],
+      "note": "EXTERNAL server we did not write: read-only access to teacher observation documents"
+    }
+  }
+}
