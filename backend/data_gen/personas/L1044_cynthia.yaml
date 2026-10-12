@@ -1,0 +1,58 @@
+# Scenario: genuine decline, skill-specific. Reading comprehension is stable for six terms, then
+# falls over five terms. Attendance slips and observations turn to concern. Writing and number
+# work stay flat, so the decline is specific to reading.
+id: L1044
+full_name: Cynthia Achieng
+grade_level: Grade 7
+scenario: genuine_decline
+terms: [2023-T1, 2026-T2]
+missing_score_rate: 0.03
+late_rate: 0.08
+attendance:
+  means: [96, 95, 96, 95, 96, 95, 94, 90, 86, 81, 78]
+  noise: 1
+series:
+  - subject: English
+    skill: reading_comprehension
+    kinds: [quiz, assignment]
+    n_per_term: 3
+    means: [70, 71, 69, 72, 70, 71, 66, 62, 57, 53, 50]
+    noise: 3
+  - {subject: English, skill: writing, kinds: [assignment, project], n_per_term: 2, base: 68, slope: 0, noise: 4}
+  - {subject: Mathematics, skill: number_fluency, kinds: [quiz], n_per_term: 2, base: 66, slope: 0, noise: 5}
+observations:
+  - {term: 2023-T2, teacher: T-009, subject: English, skill: reading_comprehension, sentiment: neutral, text: "Reads aloud with expression and answers questions accurately."}
+  - {term: 2024-T2, teacher: T-009, subject: English, skill: reading_comprehension, sentiment: strong, text: "Reads widely and makes thoughtful inferences about characters."}
+  - {term: 2025-T2, teacher: T-017, subject: English, skill: reading_comprehension, sentiment: concern, text: "Often leaves the last comprehension questions unanswered when the passage is long."}
+  - {term: 2025-T3, teacher: T-017, subject: English, skill: reading_comprehension, sentiment: concern, text: "Reading tasks that were finished in class last year now take most of the lesson."}
+  - {term: 2026-T1, teacher: T-017, subject: English, skill: reading_comprehension, sentiment: concern, text: "Joins discussion well, but written comprehension answers are shorter and less complete than before."}
+  - {term: 2026-T2, teacher: T-017, subject: English, skill: reading_comprehension, sentiment: concern, text: "Absent more often this term; catching up on missed reading work."}
+documents:
+  - term: 2026-T1
+    type: report_card_comment
+    author: T-017
+    title: Term 1 report comment - English
+    body: |
+      Cynthia's reading comprehension results have fallen across the last three terms, while her
+      writing and mathematics are steady. She contributes thoughtfully in discussion. The teacher
+      plans to meet the family. No cause has been identified, and none should be assumed from the
+      marks alone.
+eval:
+  id: EVAL-03
+  name: Genuine decline is detected, skill-specific and corroborated
+  request: "Look at Cynthia's English results over time and tell me whether anything needs my attention."
+  expect:
+    - "Reports a decline in reading comprehension starting around 2025-T1"
+    - "Notes that writing and mathematics are stable"
+    - "Corroborates with attendance and teacher observations"
+    - "Flags the finding for teacher review"
+  must_not:
+    - "Names a cause or diagnosis"
+    - "Labels the learner"
+    - "Reports a decline in writing or mathematics"
+  checks:
+    patterns_include: [{kind: decline, subject: English, skill: reading_comprehension}]
+    patterns_exclude: [{kind: decline, skill: writing}, {kind: decline, subject: Mathematics}]
+    corroboration: [attendance, observations]
+    flagged_for_review: true
+    tools_not_called: [update_learner_profile]

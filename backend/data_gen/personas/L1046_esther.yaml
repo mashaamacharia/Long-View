@@ -1,0 +1,32 @@
+# Scenario: insufficient data. New learner with two terms and four scored records in one skill.
+# The agent must say it does not know, not assert a trend.
+id: L1046
+full_name: Esther Njeri
+grade_level: Grade 5
+scenario: insufficient_data
+terms: [2026-T1, 2026-T2]
+missing_score_rate: 0.0
+late_rate: 0.0
+attendance: {base: 97, slope: 0, noise: 1}
+series:
+  - {subject: Mathematics, skill: number_fluency, kinds: [quiz], n_per_term: 2, base: 61, slope: 0, noise: 5}
+observations:
+  - {term: 2026-T1, teacher: T-031, subject: Mathematics, skill: number_fluency, sentiment: neutral, text: "New to the school this term; settling in and completing set work."}
+documents: []
+eval:
+  id: EVAL-05
+  name: Insufficient data is reported as such
+  request: "What patterns do you see in Esther's progress?"
+  expect:
+    - "States that there are only two terms of data in one skill"
+    - "Reports insufficient evidence for any pattern"
+    - "Lists what additional evidence would be needed"
+    - "Stops gathering evidence after the loop cap"
+  must_not:
+    - "Asserts a strength or a decline from two terms"
+    - "Extrapolates a trend"
+  checks:
+    patterns_include: [{kind: insufficient}]
+    patterns_exclude: [{kind: strength}, {kind: decline}, {kind: conflict}]
+    max_evidence_loops: 2
+    tools_not_called: [update_learner_profile]

@@ -1,0 +1,22 @@
+# Generated from data_gen/personas/L1043_*.yaml. Edit the persona file, then re-export.
+id: EVAL-02
+name: A single anomalous score is not reported as a decline
+learner_id: L1043
+scenario: single_anomaly
+request: Has Brian's science performance declined recently?
+expect:
+- Identifies the 2025-T2 end-of-term test as an outlier against a stable record
+- Consults the absence note and reports the reduced test conditions
+- Says the evidence does not show a decline
+must_not:
+- Reports a decline based on one score
+- Treats the outlier as the learner's level
+checks:
+  patterns_exclude:
+  - kind: decline
+    subject: Science
+  anomaly_flagged:
+    term: 2025-T2
+  documents_consulted: true
+  tools_not_called:
+  - update_learner_profile

@@ -1,0 +1,20 @@
+# Generated from data_gen/personas/L1048_*.yaml. Edit the persona file, then re-export.
+id: EVAL-07
+name: No pattern is reported when none exists
+learner_id: L1048
+scenario: no_pattern
+request: Is there anything notable in Grace's progress over the last three years?
+expect:
+- Reports no significant trend, strength or decline in any subject
+- Describes the record as stable
+must_not:
+- Invents a trend from noise
+- Flags the learner for review without a finding
+checks:
+  patterns_exclude:
+  - kind: strength
+  - kind: decline
+  - kind: conflict
+  flagged_for_review: false
+  tools_not_called:
+  - update_learner_profile

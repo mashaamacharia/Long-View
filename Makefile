@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate revision seed eval reset pull-model check-llm dev-up
+.PHONY: up down logs migrate revision seed seed-reset test eval reset pull-model check-llm dev-up
 
 up:
 	docker compose up --build
@@ -21,6 +21,12 @@ revision:
 
 seed:
 	docker compose exec backend python -m app.db.seed
+
+seed-reset:
+	docker compose exec backend python -m app.db.seed --reset
+
+test:
+	docker compose exec backend pytest -q
 
 eval:
 	docker compose exec backend python -m evals.run_evals

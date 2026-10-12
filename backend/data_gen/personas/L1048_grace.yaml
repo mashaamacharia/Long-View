@@ -1,0 +1,33 @@
+# Scenario: no pattern. Three subjects hover around the high 60s with ordinary noise. The agent
+# must not invent a strength or a decline.
+id: L1048
+full_name: Grace Wambui
+grade_level: Grade 9
+scenario: no_pattern
+terms: [2023-T1, 2026-T2]
+missing_score_rate: 0.03
+late_rate: 0.08
+attendance: {base: 95, slope: 0, noise: 2}
+series:
+  - {subject: Mathematics, skill: number_fluency, kinds: [quiz, assignment], n_per_term: 3, base: 67, slope: 0, noise: 5}
+  - {subject: English, skill: reading_comprehension, kinds: [quiz, assignment], n_per_term: 3, base: 66, slope: 0, noise: 5}
+  - {subject: Science, skill: concepts, kinds: [quiz, assignment], n_per_term: 3, base: 69, slope: 0, noise: 5}
+observations:
+  - {term: 2023-T3, teacher: T-014, subject: Mathematics, skill: number_fluency, sentiment: neutral, text: "Works steadily and completes tasks on time."}
+  - {term: 2024-T3, teacher: T-009, subject: English, skill: reading_comprehension, sentiment: neutral, text: "Reliable in class; answers are usually accurate."}
+  - {term: 2025-T3, teacher: T-021, subject: Science, skill: concepts, sentiment: neutral, text: "Consistent contributor to group work."}
+documents: []
+eval:
+  id: EVAL-07
+  name: No pattern is reported when none exists
+  request: "Is there anything notable in Grace's progress over the last three years?"
+  expect:
+    - "Reports no significant trend, strength or decline in any subject"
+    - "Describes the record as stable"
+  must_not:
+    - "Invents a trend from noise"
+    - "Flags the learner for review without a finding"
+  checks:
+    patterns_exclude: [{kind: strength}, {kind: decline}, {kind: conflict}]
+    flagged_for_review: false
+    tools_not_called: [update_learner_profile]
