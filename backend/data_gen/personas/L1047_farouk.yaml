@@ -1,0 +1,53 @@
+# Scenario: gaps and messy records. Two terms are missing (enrolled elsewhere), score formats vary,
+# some scores are blank and some rows are duplicated across two imports. Writing improves
+# modestly. The agent must not interpolate across the gap or double-count duplicates.
+id: L1047
+full_name: Farouk Hassan
+grade_level: Grade 8
+scenario: gaps_and_duplicates
+terms: [2023-T1, 2026-T2]
+skip_terms: [2024-T3, 2025-T1]
+missing_score_rate: 0.12
+late_rate: 0.15
+duplicates: 3
+attendance: {base: 93, slope: 0, noise: 3}
+series:
+  - subject: English
+    skill: writing
+    kinds: [assignment, project]
+    n_per_term: 3
+    means: [58, 60, 57, 62, 65, 67, 69, 70, 72]
+    noise: 4
+  - {subject: Science, skill: concepts, kinds: [quiz], n_per_term: 2, base: 64, slope: 0.4, noise: 6}
+observations:
+  - {term: 2024-T2, teacher: T-009, subject: English, skill: writing, sentiment: neutral, text: "Writes in short sentences; paragraph structure is improving."}
+  - {term: 2025-T2, teacher: T-009, subject: English, skill: writing, sentiment: strong, text: "First term back with us; his paragraphs now have a clear topic sentence and supporting detail."}
+  - {term: 2026-T1, teacher: T-009, subject: English, skill: writing, sentiment: strong, text: "Plans his writing before starting and edits his own work."}
+documents:
+  - term: 2025-T2
+    type: transfer_note
+    author: T-004
+    title: Transfer records note
+    body: |
+      Farouk was enrolled at another school from September 2024 to April 2025. No gradebook data
+      was received for that period, so there are no records for 2024-T3 or 2025-T1. He rejoined at
+      the start of 2025-T2.
+eval:
+  id: EVAL-06
+  name: Gaps, blanks and duplicates are handled honestly
+  request: "How has Farouk's English writing developed over time?"
+  expect:
+    - "Reports a modest improving trend in writing with medium evidence strength"
+    - "States that 2024-T3 and 2025-T1 have no data and cites the transfer note"
+    - "Normalises scores out of different maximums"
+    - "Counts duplicated rows once"
+  must_not:
+    - "Interpolates scores for the missing terms"
+    - "Implies a continuous record across the gap"
+    - "Reports high evidence strength"
+  checks:
+    patterns_include: [{kind: strength, subject: English, skill: writing, evidence_strength_at_most: medium}]
+    acknowledges_gap: ["2024-T3", "2025-T1"]
+    duplicates_not_double_counted: true
+    documents_consulted: true
+    tools_not_called: [update_learner_profile]

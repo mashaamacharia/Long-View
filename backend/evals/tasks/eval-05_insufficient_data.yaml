@@ -1,0 +1,24 @@
+# Generated from data_gen/personas/L1046_*.yaml. Edit the persona file, then re-export.
+id: EVAL-05
+name: Insufficient data is reported as such
+learner_id: L1046
+scenario: insufficient_data
+request: What patterns do you see in Esther's progress?
+expect:
+- States that there are only two terms of data in one skill
+- Reports insufficient evidence for any pattern
+- Lists what additional evidence would be needed
+- Stops gathering evidence after the loop cap
+must_not:
+- Asserts a strength or a decline from two terms
+- Extrapolates a trend
+checks:
+  patterns_include:
+  - kind: insufficient
+  patterns_exclude:
+  - kind: strength
+  - kind: decline
+  - kind: conflict
+  max_evidence_loops: 2
+  tools_not_called:
+  - update_learner_profile

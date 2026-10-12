@@ -1,0 +1,59 @@
+# Scenario: single anomalous score. Science is stable around 70; one end-of-term test in 2025-T2
+# scores 22 after an assessment-week absence. A document explains the conditions. The agent must
+# not report a decline.
+id: L1043
+full_name: Brian Otieno
+grade_level: Grade 8
+scenario: single_anomaly
+terms: [2023-T1, 2026-T2]
+missing_score_rate: 0.02
+late_rate: 0.06
+attendance:
+  base: 94
+  slope: 0
+  noise: 2
+  overrides: {2025-T2: 84}
+series:
+  - subject: Science
+    skill: concepts
+    kinds: [quiz, assignment]
+    n_per_term: 3
+    base: 72
+    slope: 0
+    noise: 4
+    anomalies:
+      - {term: 2025-T2, index: 2, pct: 22, kind: quiz, max_score: 50, title: "Science end-of-term test"}
+  - {subject: Science, skill: practical_work, kinds: [assignment, project], n_per_term: 2, base: 70, slope: 0.2, noise: 4}
+observations:
+  - {term: 2023-T3, teacher: T-021, subject: Science, skill: practical_work, sentiment: strong, text: "Careful with measurements and records results tidily."}
+  - {term: 2024-T3, teacher: T-021, subject: Science, skill: concepts, sentiment: neutral, text: "Steady work; contributes when asked."}
+  - {term: 2025-T2, teacher: T-021, subject: Science, skill: concepts, sentiment: neutral, text: "Absent for the assessment week; sat the end-of-term test on his return."}
+  - {term: 2026-T1, teacher: T-021, subject: Science, skill: practical_work, sentiment: neutral, text: "Working at his usual level; contributes well in practicals."}
+documents:
+  - term: 2025-T2
+    type: attendance_note
+    author: T-021
+    title: Assessment week absence note
+    body: |
+      Brian was away for the whole of assessment week (family event, notified by his parent in
+      advance). The Science end-of-term test was sat as a make-up paper on the Monday after his
+      return. Only 25 minutes were available instead of the standard 60, because the room had to be
+      released. No other test in the year was sat under these conditions.
+
+      His coursework and practical marks for the term are in line with earlier terms.
+eval:
+  id: EVAL-02
+  name: A single anomalous score is not reported as a decline
+  request: "Has Brian's science performance declined recently?"
+  expect:
+    - "Identifies the 2025-T2 end-of-term test as an outlier against a stable record"
+    - "Consults the absence note and reports the reduced test conditions"
+    - "Says the evidence does not show a decline"
+  must_not:
+    - "Reports a decline based on one score"
+    - "Treats the outlier as the learner's level"
+  checks:
+    patterns_exclude: [{kind: decline, subject: Science}]
+    anomaly_flagged: {term: "2025-T2"}
+    documents_consulted: true
+    tools_not_called: [update_learner_profile]

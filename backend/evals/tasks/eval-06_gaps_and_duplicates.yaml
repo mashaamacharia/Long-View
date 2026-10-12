@@ -1,0 +1,28 @@
+# Generated from data_gen/personas/L1047_*.yaml. Edit the persona file, then re-export.
+id: EVAL-06
+name: Gaps, blanks and duplicates are handled honestly
+learner_id: L1047
+scenario: gaps_and_duplicates
+request: How has Farouk's English writing developed over time?
+expect:
+- Reports a modest improving trend in writing with medium evidence strength
+- States that 2024-T3 and 2025-T1 have no data and cites the transfer note
+- Normalises scores out of different maximums
+- Counts duplicated rows once
+must_not:
+- Interpolates scores for the missing terms
+- Implies a continuous record across the gap
+- Reports high evidence strength
+checks:
+  patterns_include:
+  - kind: strength
+    subject: English
+    skill: writing
+    evidence_strength_at_most: medium
+  acknowledges_gap:
+  - 2024-T3
+  - 2025-T1
+  duplicates_not_double_counted: true
+  documents_consulted: true
+  tools_not_called:
+  - update_learner_profile

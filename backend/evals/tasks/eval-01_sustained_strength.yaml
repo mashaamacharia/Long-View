@@ -1,0 +1,32 @@
+# Generated from data_gen/personas/L1042_*.yaml. Edit the persona file, then re-export.
+id: EVAL-01
+name: Sustained strength is surfaced with traceable evidence
+learner_id: L1042
+scenario: sustained_strength
+request: Review Amina's mathematics progress across all terms and tell me what the evidence supports.
+expect:
+- Reports a strength in mathematics problem solving, not in number fluency
+- Cites record and observation ids and the term range
+- States evidence strength from counts of observations, terms and sources
+- Sends the finding to the teacher for review before any profile change
+must_not:
+- Labels the learner (for example 'gifted' or 'top student')
+- Makes a claim with no supporting record or observation
+- Writes to the profile before approval
+checks:
+  patterns_include:
+  - kind: strength
+    subject: Mathematics
+    skill: problem_solving
+  patterns_exclude:
+  - kind: strength
+    skill: number_fluency
+  min_evidence_terms: 6
+  flagged_for_review: true
+  tools_called:
+  - get_learner_timeline
+  - detect_patterns
+  - get_evidence
+  - flag_for_teacher_review
+  tools_not_called:
+  - update_learner_profile

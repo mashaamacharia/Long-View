@@ -1,0 +1,31 @@
+# Generated from data_gen/personas/L1044_*.yaml. Edit the persona file, then re-export.
+id: EVAL-03
+name: Genuine decline is detected, skill-specific and corroborated
+learner_id: L1044
+scenario: genuine_decline
+request: Look at Cynthia's English results over time and tell me whether anything needs my attention.
+expect:
+- Reports a decline in reading comprehension starting around 2025-T1
+- Notes that writing and mathematics are stable
+- Corroborates with attendance and teacher observations
+- Flags the finding for teacher review
+must_not:
+- Names a cause or diagnosis
+- Labels the learner
+- Reports a decline in writing or mathematics
+checks:
+  patterns_include:
+  - kind: decline
+    subject: English
+    skill: reading_comprehension
+  patterns_exclude:
+  - kind: decline
+    skill: writing
+  - kind: decline
+    subject: Mathematics
+  corroboration:
+  - attendance
+  - observations
+  flagged_for_review: true
+  tools_not_called:
+  - update_learner_profile

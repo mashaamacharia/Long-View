@@ -9,7 +9,7 @@ WORKDIR /app
 # deps first for better layer caching
 COPY pyproject.toml ./
 RUN mkdir -p app evals && touch app/__init__.py evals/__init__.py \
-    && pip install -e ".[gemini]"
+    && pip install -e ".[gemini,dev]"
 
 COPY . .
 RUN chmod +x entrypoint.sh
