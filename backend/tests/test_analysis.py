@@ -347,3 +347,27 @@ def test_reviewed_patterns_are_not_overwritten(tool):
     with maker() as db:
         assert db.get(LearnerPattern, pid).statement == "teacher-approved wording"
         assert db.scalar(select(func.count()).select_from(Evidence).where(Evidence.pattern_id == pid)) == n_before
+
+
+def _expected_duplicates(ds, lid, subject):
+    from collections import Counter
+    seen, per_series = set(), Counter()
+    for r in ds["records"]:
+        if r["learner_id"] != lid or r["kind"] == "attendance" or (subject and r["subject"] != subject):
+            continue
+        key = (r["term"], r["kind"], r["subject"], r["skill"], r["title"], r["score"], r["max_score"])
+        if key in seen:
+            per_series[(r["subject"], r["skill"])] += 1
+        seen.add(key)
+    return per_series
+
+
+def test_duplicates_are_reported_for_the_analysed_subject_only(ds):
+    for subject in (None, "English", "Science"):
+        expected = _expected_duplicates(ds, "L1047", subject)
+        res = run(ds, "L1047", subject=subject)
+        assert res["data_quality"]["duplicates_removed"] == sum(expected.values()), subject
+        for p in res["patterns"]:
+            has_caveat = any("Duplicate rows" in c for c in p["caveats"])
+            assert has_caveat == (expected[(p["subject"], p["skill"])] > 0), (subject, p["subject"], p["skill"])
+    assert run(ds, "L1047")["data_quality"]["duplicates_removed"] == 3

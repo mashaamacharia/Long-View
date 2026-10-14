@@ -1,3 +1,4 @@
+
 # Architecture
 
 > Work in progress. Sections are added as each layer lands.
@@ -41,13 +42,13 @@ a teacher has already reviewed are not overwritten by later runs. The tool respo
 
 ## Tool contracts and safety rules (`learner-intelligence-mcp`)
 
-| Tool | Reads / writes | Rules enforced server-side |
-|---|---|---|
-| `get_learner_timeline` | reads | compact, term-ordered records and observations |
-| `detect_patterns` | writes candidate patterns + evidence | deterministic; patterns a teacher has decided are never overwritten |
-| `get_evidence` | reads | counts plus an earliest/latest sample; label-bearing teacher notes are withheld and flagged |
-| `flag_for_teacher_review` | writes a pending review | refuses `insufficient` findings, other learners' patterns, already-decided patterns and empty reasons; idempotent while pending; changes no learner data |
-| `update_learner_profile` | the only write to the profile | requires a teacher-approved `approval_id` (checked in the server, not the model) |
+| Tool                        | Reads / writes                       | Rules enforced server-side                                                                                                                                 |
+| --------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_learner_timeline`    | reads                                | compact, term-ordered records and observations                                                                                                             |
+| `detect_patterns`         | writes candidate patterns + evidence | deterministic; patterns a teacher has decided are never overwritten                                                                                        |
+| `get_evidence`            | reads                                | counts plus an earliest/latest sample; label-bearing teacher notes are withheld and flagged                                                                |
+| `flag_for_teacher_review` | writes a pending review              | refuses `insufficient` findings, other learners' patterns, already-decided patterns and empty reasons; idempotent while pending; changes no learner data |
+| `update_learner_profile`  | the only write to the profile        | requires a teacher-approved `approval_id` (checked in the server, not the model)                                                                         |
 
 **Why the rules live in the server.** The model can be wrong or be talked into things; the server
 cannot. A teacher request to "skip the review" reaches the same refusal as a model mistake.
@@ -103,14 +104,15 @@ fetch_timeline -> detect -> investigate -> triage -> flag -> await_teacher -> ap
 
 **Division of labour.** The model proposes; the runtime disposes.
 
-| Step | Model | Code |
-|---|---|---|
-| Which tool to call next (`investigate`) | chooses among 4 read-only tools | validates every call, then guarantees minimum coverage itself |
-| Which findings go to a teacher | none | `policy.select_candidates` (approvable kinds, enough evidence, not already decided) |
-| What is written to a profile | none | only the approved finding's own statement, only with the teacher's `approval_id` |
-| The summary | drafts prose from a fact sheet | verifier rejects it, else a deterministic template |
+| Step                                      | Model                           | Code                                                                                  |
+| ----------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------- |
+| Which tool to call next (`investigate`) | chooses among 4 read-only tools | validates every call, then guarantees minimum coverage itself                         |
+| Which findings go to a teacher            | none                            | `policy.select_candidates` (approvable kinds, enough evidence, not already decided) |
+| What is written to a profile              | none                            | only the approved finding's own statement, only with the teacher's `approval_id`    |
+| The summary                               | drafts prose from a fact sheet  | verifier rejects it, else a deterministic template                                    |
 
 **Tool boundary** (`tools.py`, enforced in code, not in the prompt)
+
 - Two MCP servers behind one router: ours (streamable HTTP) and the external
   `@modelcontextprotocol/server-filesystem` (stdio, pre-installed in the image).
 - The external server also offers `write_file`, `edit_file` and `move_file`. The router exposes
@@ -147,6 +149,7 @@ model cannot serve two).
 row, streamed by `GET /api/runs/{id}/stream` (SSE) for the dashboard.
 
 **Operational notes**
+
 - A finding a teacher has approved or rejected is not re-proposed on later runs. To repeat a demo on
   the same learner, run `make seed-reset`.
 - LangGraph's checkpointer creates its own tables (`checkpoints`, ...). `alembic/env.py` excludes them

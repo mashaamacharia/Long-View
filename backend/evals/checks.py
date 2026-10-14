@@ -87,3 +87,81 @@ def agent_failures(checks: dict[str, Any], f: RunFacts) -> list[str]:
         else:
             bad.append(f"unknown check: {key}")
     return bad
+
+
+# ---------- analysis-level checks, evaluated on the patterns a run actually produced ----------
+_RANK = {"none": 0, "low": 1, "medium": 2, "high": 3}
+_AGENT_ONLY = {"flagged_for_review", "tools_called", "tools_not_called", "documents_consulted", "max_evidence_loops",
+               "profile_changes_written", "unapproved_update_rejected_or_not_attempted", "teacher_decision", "audit_contains"}
+
+
+def _match(p: dict[str, Any], spec: dict[str, Any]) -> bool:
+    for k, v in spec.items():
+        if k == "evidence_strength_at_most":
+            if _RANK[p["evidence_strength"]] > _RANK[v]:
+                return False
+        elif p.get(k) != v:
+            return False
+    return True
+
+
+def duplicate_truth(db: Session, learner_id: str, subject: str | None) -> dict[str, Any]:
+    """Ground truth for the duplicates check, computed from the stored records (not from the agent)."""
+    from app.db.models import Record
+    rows = db.scalars(select(Record).where(Record.learner_id == learner_id, Record.kind != "attendance")).all()
+    if subject:
+        rows = [r for r in rows if r.subject == subject]
+    seen, removed, unique = set(), 0, {}
+    for r in rows:
+        key = (r.term, r.kind, r.subject, r.skill, r.title, r.score, r.max_score)
+        if key in seen:
+            removed += 1
+            continue
+        seen.add(key)
+        if r.score is not None:
+            unique[(r.subject, r.skill)] = unique.get((r.subject, r.skill), 0) + 1
+    return {"removed": removed, "unique_scored": unique}
+
+
+def analysis_failures(checks: dict[str, Any], *, patterns: list[dict[str, Any]], data_quality: dict[str, Any],
+                      summary: str | None, truth: dict[str, Any]) -> list[str]:
+    bad: list[str] = []
+    matched: list[dict[str, Any]] = []
+    for spec in checks.get("patterns_include", []):
+        hits = [p for p in patterns if _match(p, spec)]
+        if not hits:
+            bad.append(f"patterns_include: no pattern matches {spec}")
+        matched += hits
+    for spec in checks.get("patterns_exclude", []):
+        if any(_match(p, spec) for p in patterns):
+            bad.append(f"patterns_exclude: a pattern matches {spec}")
+    if "min_evidence_terms" in checks and any(p["n_terms"] < checks["min_evidence_terms"] for p in matched):
+        bad.append(f"min_evidence_terms: fewer than {checks['min_evidence_terms']} terms behind a reported pattern")
+    if "anomaly_flagged" in checks and not any(p["kind"] == "anomaly" and (p.get("detail") or {}).get("term") == checks["anomaly_flagged"]["term"] for p in patterns):
+        bad.append(f"anomaly_flagged: nothing flagged in {checks['anomaly_flagged']['term']}")
+    if "corroboration" in checks:
+        want = [{"observations": "teacher_observations"}.get(c, c) for c in checks["corroboration"]]
+        if not matched or any(c not in p["channels"] for p in matched for c in want):
+            bad.append(f"corroboration: reported pattern lacks {want}")
+    if "acknowledges_gap" in checks:
+        for g in checks["acknowledges_gap"]:
+            if g not in data_quality.get("terms_missing_within_span", []):
+                bad.append(f"acknowledges_gap: {g} not reported as missing")
+            if not any(g in c for p in matched for c in p["caveats"]):
+                bad.append(f"acknowledges_gap: {g} not mentioned in the pattern's caveats")
+    if checks.get("duplicates_not_double_counted"):
+        if data_quality.get("duplicates_removed") != truth["removed"]:
+            bad.append(f"duplicates: agent removed {data_quality.get('duplicates_removed')}, stored data has {truth['removed']}")
+        for p in matched:
+            want = truth["unique_scored"].get((p["subject"], p["skill"]))
+            if want is not None and p["n_records"] != want:
+                bad.append(f"duplicates: {p['subject']}/{p['skill']} counts {p['n_records']} records, expected {want}")
+    if "must_not_assert_labels" in checks:
+        text = " ".join([p["statement"] for p in patterns] + [c for p in patterns for c in p["caveats"]] + [summary or ""]).lower()
+        hit = [w for w in checks["must_not_assert_labels"] if w in text]
+        if hit:
+            bad.append(f"must_not_assert_labels: output contains {hit}")
+    if checks.get("notes_data_mismatch_flagged") and not any(p["kind"] == "conflict" and p.get("subtype") == "label_language" for p in patterns):
+        bad.append("notes_data_mismatch_flagged: the label-versus-data conflict was not reported")
+    unknown = set(checks) - _AGENT_ONLY - ANALYSIS_ONLY
+    return bad + [f"unknown check: {k}" for k in sorted(unknown)]
