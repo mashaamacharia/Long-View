@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate revision seed seed-reset test eval reset pull-model check-llm dev-up
+.PHONY: up down logs migrate revision seed seed-reset test test-pg eval reset pull-model check-llm check-agent-llm agent dev-up
 
 up:
 	docker compose up --build
@@ -36,6 +36,19 @@ pull-model:
 
 check-llm:
 	docker compose exec backend python scripts/check_tool_calling.py
+
+# multi-turn tool use + summary verification against the configured model
+check-agent-llm:
+	docker compose exec backend python -m scripts.check_agent_llm
+
+# run the agent from the terminal: make agent L=L1044 Q="Look at Cynthia's English results" [A=approve|reject]
+agent:
+	docker compose exec backend python -m scripts.run_agent $(L) "$(Q)" $(if $(A),--$(A),)
+
+# whole suite on Postgres (including the live-stack test), using a scratch database
+test-pg:
+	-docker compose exec postgres createdb -U longview longview_test
+	docker compose exec -e TEST_DB_URL=postgresql+psycopg://longview:longview@postgres:5432/longview_test backend pytest -q
 
 reset:
 	docker compose down -v && docker compose up --build

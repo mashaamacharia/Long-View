@@ -30,16 +30,16 @@ def detect_patterns(learner_id: str, subject: str | None = None, run_id: str | N
 
 @mcp.tool()
 @audited("get_evidence")
-def get_evidence(pattern_id: str, run_id: str | None = None) -> dict:
-    """Get the underlying evidence for a detected pattern."""
-    return _evidence.get_evidence(pattern_id)
+def get_evidence(pattern_id: str, max_records: int = 12, run_id: str | None = None) -> dict:
+    """Get the records, teacher observations and attendance behind a detected pattern (a sample, with totals)."""
+    return _evidence.get_evidence(pattern_id, max_records=max_records)
 
 
 @mcp.tool()
 @audited("flag_for_teacher_review")
 def flag_for_teacher_review(learner_id: str, pattern_id: str, reason: str, run_id: str | None = None) -> dict:
     """Send a pattern to the teacher for review."""
-    return _flag.flag_for_teacher_review(learner_id, pattern_id, reason)
+    return _flag.flag_for_teacher_review(learner_id, pattern_id, reason, run_id)
 
 
 @mcp.tool()

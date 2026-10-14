@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -13,14 +13,16 @@ class LearnerPattern(Base):
 
     id: Mapped[str] = mapped_column(String(24), primary_key=True)  # "PATTERN-0092"
     learner_id: Mapped[str] = mapped_column(ForeignKey("learners.id"), index=True)
-    kind: Mapped[str] = mapped_column(String(24))  # strength|decline|conflict|insufficient
+    kind: Mapped[str] = mapped_column(String(24))  # strength|decline|conflict|anomaly|insufficient
+    subject: Mapped[str | None] = mapped_column(String(40), nullable=True)
     skill: Mapped[str | None] = mapped_column(String(60), nullable=True)
     statement: Mapped[str] = mapped_column(Text)
-    evidence_strength: Mapped[str] = mapped_column(String(10))  # high|medium|low
+    evidence_strength: Mapped[str] = mapped_column(String(10))  # high|medium|low|none
     n_observations: Mapped[int] = mapped_column(Integer, default=0)
     n_terms: Mapped[int] = mapped_column(Integer, default=0)
     n_sources: Mapped[int] = mapped_column(Integer, default=0)
-    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)  # unused: strength is categorical
+    detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # subtype, channels, caveats, metrics
     status: Mapped[str] = mapped_column(String(16), default="proposed")  # proposed|in_review|approved|rejected
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

@@ -15,6 +15,14 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# Tables owned by LangGraph's Postgres checkpointer (created by saver.setup()). They are not in our
+# metadata, so without this filter `alembic --autogenerate` would propose dropping them.
+LANGGRAPH_TABLES = {"checkpoints", "checkpoint_blobs", "checkpoint_writes", "checkpoint_migrations"}
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    return not (type_ == "table" and reflected and name in LANGGRAPH_TABLES)
+
 
 def run_migrations_offline() -> None:
     context.configure(
@@ -22,6 +30,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -34,7 +43,8 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True,
+                          include_object=include_object)
         with context.begin_transaction():
             context.run_migrations()
 
