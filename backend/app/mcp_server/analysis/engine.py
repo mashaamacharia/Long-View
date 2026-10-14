@@ -68,6 +68,11 @@ def analyse(learner_id: str, records: list[dict[str, Any]], observations: list[d
     if subject:
         work = [r for r in work if r["subject"] == subject]
         obs = [o for o in obs if o.get("subject") in (subject, None)]
+    # duplicates are reported for what was actually analysed, not for other subjects the teacher did not ask about
+    dropped = [d for d in dropped if d["kind"] != "attendance" and (subject is None or d["subject"] == subject)]
+    dup_series = defaultdict(int)
+    for d in dropped:
+        dup_series[(d["subject"], d.get("skill"))] += 1
 
     att_pts = tr.term_means(attendance)
     att_trend = tr.trend(att_pts)
@@ -113,7 +118,7 @@ def analyse(learner_id: str, records: list[dict[str, Any]], observations: list[d
             caveats.append(f"No data for {', '.join(gaps)}; computed over the terms that have data only, nothing interpolated.")
         if flagged:
             caveats.append(f"{len(flagged)} outlying score(s) excluded from the trend and reported separately.")
-        if dropped:
+        if dup_series[(subj, skill)]:
             caveats.append("Duplicate rows from repeated imports were counted once.")
 
         skill_obs = [o for o in obs if o.get("subject") == subj and o.get("skill") in (skill, None)]

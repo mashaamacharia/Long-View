@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate revision seed seed-reset test test-pg eval reset pull-model check-llm check-agent-llm agent dev-up
+.PHONY: up down logs migrate revision seed seed-reset test test-pg eval eval-quick reset pull-model check-llm check-agent-llm agent dev-up
 
 up:
 	docker compose up --build
@@ -28,8 +28,13 @@ seed-reset:
 test:
 	docker compose exec backend pytest -q
 
+# all tasks against your real model (about 30 min on CPU); subset: make eval ONLY=EVAL-03,EVAL-05
 eval:
-	docker compose exec backend python -m evals.run_evals
+	docker compose exec backend python -m evals.run_evals --yes $(if $(ONLY),--only $(ONLY),)
+
+# no model at all: proves the deterministic floor and the pipeline in about a minute
+eval-quick:
+	docker compose exec backend python -m evals.run_evals --yes --llm none
 
 pull-model:
 	docker compose exec ollama ollama pull $$(grep ^OLLAMA_MODEL .env | cut -d= -f2)

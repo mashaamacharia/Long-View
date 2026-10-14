@@ -35,6 +35,8 @@ services:
       # generated migrations land on your machine (so you can commit them)
       - ./backend/alembic/versions:/app/alembic/versions
       - ./data:/data
+      - ./EVALS.md:/app/EVALS.md
+      - ./backend/evals/results:/app/evals/results
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
