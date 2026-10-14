@@ -12,6 +12,18 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
+    ollama_keep_alive: str = "30m"
+    llm_num_ctx: int = 4096
+    llm_timeout_s: float = 300.0
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+    docs_dir: str = "/data/docs"
+    docs_mcp_command: str = "mcp-server-filesystem"
+    docs_mcp_args: str = ""
+
+    agent_max_llm_steps: int = 4
+    agent_max_rounds: int = 2
+
     mcp_transport: str = "streamable-http"
     mcp_host: str = "0.0.0.0"
     mcp_port: int = 8001

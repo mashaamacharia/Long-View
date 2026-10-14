@@ -12,6 +12,7 @@ from app.db.models import Approval, LearnerPattern, ProfileChange, TeacherReview
 from app.db.seed import seed
 from app.db.session import get_db
 from app.main import app
+from tests.dbutil import make_engine
 from data_gen.generate import build_dataset
 
 GOOD = "Problem solving improved steadily over 11 terms, from about 59% to about 79%."
@@ -19,9 +20,7 @@ GOOD = "Problem solving improved steadily over 11 terms, from about 59% to about
 
 @pytest.fixture()
 def env(monkeypatch):
-    # TestClient serves requests on another thread; a shared single connection keeps one in-memory DB for all
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
+    engine = make_engine()
     with Session(engine) as db:
         seed(db, build_dataset())
     maker = sessionmaker(bind=engine, expire_on_commit=False)

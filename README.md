@@ -29,5 +29,8 @@ Open http://localhost:5173 (UI) and http://localhost:8000/docs (API).
 | `make seed` | load synthetic data |
 | `make eval` | run the evaluation suite |
 | `make check-llm` | smoke-test Qwen tool calling |
+| `make check-agent-llm` | check the model on the agent's three jobs (tool choice, stopping, verified summary) |
+| `make agent L=L1044 Q="..."` | run the agent from the terminal (`A=approve` or `A=reject` to auto-decide) |
+| `make test-pg` | whole test suite on Postgres, including the live-stack test |
 
 TODO: architecture summary, demo link, evals summary.

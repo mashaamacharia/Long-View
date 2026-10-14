@@ -7,9 +7,11 @@
     },
     "documents": {
       "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data/docs"],
-      "note": "EXTERNAL server we did not write: read-only access to teacher observation documents"
+      "command": "mcp-server-filesystem",
+      "args": [
+        "/data/docs"
+      ],
+      "note": "EXTERNAL server we did not write (@modelcontextprotocol/server-filesystem), pre-installed in the backend image. It also exposes write tools; the agent's router only ever reaches list_directory and read_text_file, and only inside the current learner's folder."
     }
   }
 }

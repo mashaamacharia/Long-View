@@ -30,7 +30,6 @@ def main() -> int:
         "stream": False,
         "tools": TOOLS,
         "messages": [{"role": "user", "content": "Show me the timeline for learner L1042 in mathematics."}],
-        "options": {"num_ctx": 8192, "temperature": 0.2},
     }
     t0 = time.time()
     r = httpx.post(f"{settings.ollama_base_url}/api/chat", json=payload, timeout=600)

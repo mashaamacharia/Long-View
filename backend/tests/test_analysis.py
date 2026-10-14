@@ -20,6 +20,7 @@ from app.mcp_server.analysis import sufficiency as sf
 from app.mcp_server.analysis import trends as tr
 from app.mcp_server.analysis.common import dedupe, missing_terms, pct, term_label, term_ord
 from app.mcp_server.analysis.engine import analyse
+from tests.dbutil import make_engine
 from data_gen.generate import build_dataset
 
 TASKS = Path(__file__).resolve().parents[1] / "evals" / "tasks"
@@ -292,8 +293,7 @@ def test_anomaly_pulls_in_same_term_context(ds):
 # ---------- tool level (SQLite stand-in for Postgres) ----------
 @pytest.fixture()
 def tool(ds, monkeypatch):
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
+    engine = make_engine()
     with Session(engine) as db:
         seed(db, ds)
     maker = sessionmaker(bind=engine, expire_on_commit=False)

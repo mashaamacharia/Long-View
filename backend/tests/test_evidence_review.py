@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db.base import Base
 from app.db.models import AgentRun, LearnerPattern, TeacherReview, ToolCall
 from app.db.seed import seed
+from tests.dbutil import make_engine
 from data_gen.generate import build_dataset
 
 LABELS = ["lazy", "slow learner", "not an academic"]
@@ -16,8 +17,7 @@ LABELS = ["lazy", "slow learner", "not an academic"]
 
 @pytest.fixture()
 def env(monkeypatch):
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
+    engine = make_engine()
     with Session(engine) as db:
         seed(db, build_dataset())
     maker = sessionmaker(bind=engine, expire_on_commit=False)

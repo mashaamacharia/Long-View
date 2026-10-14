@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -31,9 +31,14 @@ def get_review(review_id: int, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/{review_id}/decision")
-def decide(review_id: int, body: DecisionIn, db: Session = Depends(get_db)) -> dict:
-    """Approve, reject, or ask for more evidence. Approval mints the approval_id that unlocks the profile write."""
+def decide(review_id: int, body: DecisionIn, request: Request, db: Session = Depends(get_db)) -> dict:
+    """Approve, reject, or ask for more evidence. Approval mints the approval_id that unlocks the profile write.
+    When every review of a paused run is decided, the run resumes in the background."""
     try:
-        return svc.decide(db, review_id, body.teacher_id, body.decision, body.comment)
+        result = svc.decide(db, review_id, body.teacher_id, body.decision, body.comment)
     except svc.ReviewError as exc:
         raise _http(exc)
+    manager = getattr(request.app.state, "runs", None)
+    if manager is not None:
+        manager.on_decision(review_id)
+    return result

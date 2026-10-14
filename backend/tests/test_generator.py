@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.db.models import Learner, Observation, Record
 from app.db.seed import seed
+from tests.dbutil import make_engine
 from data_gen.generate import ALL_TERMS, build_dataset, load_personas, validate_persona
 
 
@@ -122,8 +123,7 @@ def test_validation_rejects_bad_means():
 
 
 def test_seed_roundtrip_and_idempotence(ds):
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
+    engine = make_engine()
     with Session(engine) as db:
         r1 = seed(db, ds)
         assert r1["learners"] == 8 and r1["records"] == len(ds["records"])
