@@ -254,6 +254,7 @@ def build_graph(d: Deps) -> StateGraph:
         facts = summ.build_facts(state)
         llm_ok, llm_calls, llm_secs = state.get("llm_ok", True), state.get("llm_calls", 0), state.get("llm_seconds", 0.0)
         fallbacks, text, source, violations, retried = list(state.get("fallbacks", [])), None, "template", [], False
+        repairs: list[tuple[str, str]] = []
         d.events.add("node", "summarise", "Writing the summary")
         if d.llm and llm_ok:
             messages = [{"role": "system", "content": summ.SYSTEM_PROMPT}, {"role": "user", "content": facts.text}]
@@ -267,14 +268,17 @@ def build_graph(d: Deps) -> StateGraph:
                     break
                 llm_calls += 1
                 llm_secs += resp.seconds
-                violations = summ.verify(resp.content, facts)
-                d.events.add("llm", "summarise", f"Draft {attempt} written ({resp.seconds:.0f}s)", {"violations": violations})
+                draft, fixed = summ.repair_citations(resp.content, facts)
+                repairs += fixed
+                violations = summ.verify(draft, facts)
+                d.events.add("llm", "summarise", f"Draft {attempt} written ({resp.seconds:.0f}s)",
+                             {"violations": violations, "repaired_citations": fixed})
                 if not violations:
-                    text, source = resp.content.strip(), "llm"
+                    text, source = draft.strip(), "llm"
                     break
                 retried = True
                 d.events.add("rejected", "summarise", "Draft rejected by the verifier", {"violations": violations})
-                messages += [{"role": "assistant", "content": resp.content}, {"role": "user", "content": summ.retry_message(violations)}]
+                messages += [{"role": "assistant", "content": resp.content}, {"role": "user", "content": summ.retry_message(violations, facts)}]
             if text is None and llm_ok:
                 fallbacks.append("summary draft failed verification twice; used the template")
         if text is None:
@@ -284,7 +288,8 @@ def build_graph(d: Deps) -> StateGraph:
                      "outcome": summ._outcome(state, p["pattern_id"])} for p in state.get("patterns", [])]
         result = {
             "summary": text, "summary_source": source,
-            "verification": {"violations": violations if source != "llm" else [], "retried": retried},
+            "verification": {"violations": violations if source != "llm" else [], "retried": retried,
+                             "repaired_citations": [{"wrote": a, "fixed_to": b} for a, b in repairs]},
             "findings": findings, "documents_consulted": sorted(state.get("gathered", {}).get("docs", {})),
             "profile_changes": [a for a in state.get("applied", []) if a.get("ok")],
             "fallbacks": fallbacks, "checked": state.get("checked", []), "data_quality": state.get("data_quality", {}),

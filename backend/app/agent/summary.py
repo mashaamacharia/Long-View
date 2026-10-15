@@ -15,11 +15,13 @@ from app.mcp_server.analysis.conflicts import has_label_language
 SYSTEM_PROMPT = (
     "You write a short summary for a teacher from a FACT SHEET.\n"
     "Rules:\n"
-    "1. Use only facts in the sheet. Do no arithmetic and add no numbers that are not in the sheet.\n"
-    "2. Cite every finding with its pattern id in square brackets, like [PAT-1A2B3C4D], and cite supporting "
-    "evidence ids like [R12] [O3] [D1].\n"
+    "1. Use only facts in the sheet. Do no arithmetic and write no number that is not in the sheet.\n"
+    "2. Cite each finding by its exact pattern id from the sheet, in square brackets, copied character for "
+    "character. Cite supporting evidence by the record, note and document ids from the sheet (they start with "
+    "R, O or D). Never invent an id. If the sheet has no findings, cite nothing.\n"
     "3. Describe measured change and evidence only. Never name a cause, a diagnosis, a trait or a label for the "
-    "learner. Avoid the words 'because' and 'due to'; state conditions as plain facts.\n"
+    "learner. Do not use the words 'because' or 'due to'; put each condition in its own plain sentence, for "
+    "example: 'The test was sat as a make-up paper.' followed by the document's id.\n"
     "4. If the sheet says insufficient data or no pattern, say so plainly.\n"
     "5. Say what is waiting for the teacher and what was written to the profile, exactly as the sheet says.\n"
     "6. Under 180 words. Plain sentences, no headings, no lists."
@@ -27,6 +29,11 @@ SYSTEM_PROMPT = (
 
 _CAUSE = re.compile(r"\b(because|due to|caused?|causing|as a result of|diagnos\w*|anxiety|dyslex\w*|adhd|autis\w*|"
                     r"disorder|disability|lazy|struggl\w*)\b", re.IGNORECASE)
+# "No cause has been identified" is a hedge, not a causal claim. "The cause is X" and "caused by" still fail.
+_HEDGED_CAUSE = re.compile(
+    r"\b(?:no|not|neither|without|unknown|unidentified)\b[^.!?]{0,40}\bcauses?\b"
+    r"|\bcauses?\b[^.!?]{0,40}\b(?:not|unknown|unidentified|(?:has|have) been identified|(?:has|have) not been)\b",
+    re.IGNORECASE)
 _CITE = re.compile(r"\[([A-Za-z0-9:_.\-]+)\]")
 _TERM = re.compile(r"\b\d{4}-T[1-3]\b")
 _ID = re.compile(r"\b(?:PAT-[0-9A-F]+|[ROD]\d+)\b")
@@ -132,8 +139,12 @@ def _normalised_numbers(text: str) -> set[str]:
     return set(_NUM.findall(text))
 
 
-def verify(summary: str, facts: Facts) -> list[str]:
-    """Return a list of violations (empty = safe to show)."""
+def verify(summary: str, facts: Facts, causal: bool = True) -> list[str]:
+    """Return a list of violations (empty = safe to show).
+
+    causal=False skips only the causal-wording scan. The deterministic template uses it because it quotes
+    documents verbatim ("... because the room had to be released"); a quoted source is not the agent's claim.
+    Labels, ids, numbers and terms are always checked."""
     bad: list[str] = []
     text = (summary or "").strip()
     if not text:
@@ -149,7 +160,7 @@ def verify(summary: str, facts: Facts) -> list[str]:
         bad.append(f"it does not cite every finding by pattern id; missing: {', '.join(missing)}")
     if has_label_language(text):
         bad.append("it uses a trait or ability label for the learner")
-    m = _CAUSE.search(text)
+    m = _CAUSE.search(_HEDGED_CAUSE.sub(" ", text)) if causal else None
     if m:
         bad.append(f"it uses causal or diagnostic wording ('{m.group(0)}'); state measured facts only")
     extra_nums = sorted(_normalised_numbers(text) - _normalised_numbers(facts.text), key=float)
@@ -161,8 +172,53 @@ def verify(summary: str, facts: Facts) -> list[str]:
     return bad
 
 
-def retry_message(violations: list[str]) -> str:
-    return "Your summary was rejected for these reasons:\n- " + "\n- ".join(violations) + "\nRewrite it, fixing every point."
+def retry_message(violations: list[str], facts: Facts | None = None) -> str:
+    msg = "Your summary was rejected for these reasons:\n- " + "\n- ".join(violations)
+    if facts is not None and facts.allowed_ids:
+        pats = sorted(i for i in facts.allowed_ids if i.startswith("PAT-"))
+        rest = sorted((i for i in facts.allowed_ids if not i.startswith("PAT-")), key=lambda x: (x[0], int(x[1:]) if x[1:].isdigit() else 0))
+        msg += "\nThe only valid ids are: " + ", ".join(pats + rest) + ". Copy them exactly."
+    return msg + "\nRewrite it, fixing every point."
+
+
+def _lev(a: str, b: str) -> int:
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def repair_citations(text: str, facts: Facts) -> tuple[str, list[tuple[str, str]]]:
+    """Fix a mis-copied pattern id (a 4B model dropping a character of an 8-character hex id) when exactly one
+    real id is within edit distance 2. Pattern ids only: record, note and document ids are short and never guessed."""
+    repairs: list[tuple[str, str]] = []
+
+    def fix(m: re.Match) -> str:
+        cid = m.group(1)
+        if cid in facts.allowed_ids or not cid.startswith("PAT-"):
+            return m.group(0)
+        near = [p for p in facts.pattern_ids if abs(len(p) - len(cid)) <= 2 and _lev(p, cid) <= 2]
+        if len(near) == 1:
+            repairs.append((cid, near[0]))
+            return f"[{near[0]}]"
+        return m.group(0)
+
+    return _CITE.sub(fix, text), repairs
+
+
+def clip_sentences(text: str, limit: int = 450) -> str:
+    """Shorten at a sentence boundary, never mid-sentence."""
+    if len(text) <= limit:
+        return text
+    out = ""
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        if out and len(out) + 1 + len(sent) > limit:
+            break
+        out = f"{out} {sent}".strip()
+    return out if len(out) <= limit else out[:limit].rsplit(" ", 1)[0] + "…"
 
 
 def template_summary(state: dict[str, Any], facts: Facts) -> str:
@@ -188,7 +244,7 @@ def template_summary(state: dict[str, Any], facts: Facts) -> str:
         parts.append(line)
     docs = sorted(state.get("gathered", {}).get("docs", {}).items())
     for i, (path, d) in enumerate(docs, start=1):
-        parts.append(f"Document [D{i}] ({d.get('title') or path}): {d['excerpt'][:240]}")
+        parts.append(f"Document [D{i}] ({d.get('title') or path}): \"{clip_sentences(d['excerpt'])}\"")
     if not state.get("patterns"):
         n_flat = sum(1 for c in state.get("checked", []) if c["result"] == "no_significant_trend")
         if n_flat:

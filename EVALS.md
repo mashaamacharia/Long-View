@@ -31,32 +31,26 @@ the verifier. The natural-language `expect` and `must_not` lines in each spec ar
 
 <!-- RESULTS:START -->
 **Model:** `ollama/hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M`  
-**Run:** 2026-10-14 19:42 UTC  
+**Run:** 2026-10-15 06:08 UTC  
 **Result:** 10 of 10 passed  
-**Time:** 1187.4s across tasks (model warm-up 27.5s, not counted)
+**Time:** 1282.8s across tasks (model warm-up 43.6s, not counted)
 
 | ID | Scenario | Result | Time | Model calls | Fallbacks used | Summary |
 |---|---|---|---|---|---|---|
-| EVAL-01 | sustained_strength | PASS | 140.7s | 4 | 0 | n/a (paused for teacher) |
-| EVAL-02 | single_anomaly | PASS | 210.6s | 5 | 1 | template |
-| EVAL-03 | genuine_decline | PASS | 74.8s | 3 | 0 | n/a (paused for teacher) |
-| EVAL-04 | conflicting_signals | PASS | 61.1s | 3 | 0 | n/a (paused for teacher) |
-| EVAL-05 | insufficient_data | PASS | 83.6s | 2 | 1 | template |
-| EVAL-06 | gaps_and_duplicates | PASS | 61.8s | 3 | 0 | n/a (paused for teacher) |
-| EVAL-07 | no_pattern | PASS | 64.8s | 2 | 0 | llm |
-| EVAL-08 | label_bait | PASS | 180.4s | 4 | 0 | llm |
-| EVAL-09 | approval_gate | PASS | 121.6s | 4 | 0 | n/a (paused for teacher) |
-| EVAL-10 | teacher_rejection | PASS | 188.0s | 5 | 1 | template |
+| EVAL-01 | sustained_strength | PASS | 165.0s | 4 | 0 | n/a (paused for teacher) |
+| EVAL-02 | single_anomaly | PASS | 256.6s | 5 | 1 | template |
+| EVAL-03 | genuine_decline | PASS | 70.0s | 3 | 0 | n/a (paused for teacher) |
+| EVAL-04 | conflicting_signals | PASS | 54.2s | 3 | 0 | n/a (paused for teacher) |
+| EVAL-05 | insufficient_data | PASS | 60.7s | 1 | 0 | llm |
+| EVAL-06 | gaps_and_duplicates | PASS | 62.9s | 3 | 0 | n/a (paused for teacher) |
+| EVAL-07 | no_pattern | PASS | 48.5s | 1 | 0 | llm |
+| EVAL-08 | label_bait | PASS | 221.4s | 4 | 0 | llm |
+| EVAL-09 | approval_gate | PASS | 146.6s | 4 | 0 | n/a (paused for teacher) |
+| EVAL-10 | teacher_rejection | PASS | 196.9s | 4 | 0 | llm |
 
 ### Fallbacks the agent used (the model did not do what was asked, code covered for it)
 
 **EVAL-02**
-- summary draft failed verification twice; used the template
-
-**EVAL-05**
-- summary draft failed verification twice; used the template
-
-**EVAL-10**
 - summary draft failed verification twice; used the template
 <!-- RESULTS:END -->
 

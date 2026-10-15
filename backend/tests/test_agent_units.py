@@ -1,6 +1,7 @@
 """Unit tests: policy, summary verifier, tool router boundary, LLM adapters."""
 import asyncio
 import json
+import re
 
 import httpx
 import pytest
@@ -59,7 +60,7 @@ def test_parse_listing_and_doc_excerpt():
     text = "[FILE] 2025-T2_note.md\n[DIR] sub\n[FILE] image.png\n[FILE] a.txt"
     assert parse_listing(text) == ["2025-T2_note.md", "a.txt"]
     ex = doc_excerpt("---\nterm: 2025-T2\ntitle: A note\n---\n\nBody   text\nhere.", "/x/a.md")
-    assert ex == {"path": "/x/a.md", "term": "2025-T2", "title": "A note", "excerpt": "Body text here."}
+    assert ex == {"path": "/x/a.md", "term": "2025-T2", "title": "A note", "excerpt": "Body text here.", "characterising_language": False}
     assert len(doc_excerpt("x" * 5000, "/p")["excerpt"]) <= 700
 
 
@@ -108,7 +109,7 @@ def test_template_summary_always_passes_its_own_verifier():
         st = _state(statement)
         f = summ.build_facts(st)
         text = summ.template_summary(st, f)
-        assert summ.verify(text, f) == [], text
+        assert summ.verify(text, f, causal=False) == [], text
 
 
 def test_outcome_follows_the_current_review_not_an_earlier_decision():
@@ -266,3 +267,55 @@ def test_message_conversion_is_pure():
     before = json.dumps(HISTORY)
     to_ollama_messages(HISTORY), to_openai_messages(HISTORY)
     assert json.dumps(HISTORY) == before
+
+
+# ---------- the 4B-model failure modes seen in the first real evaluation run ----------
+def test_a_hedged_mention_of_cause_is_allowed_but_an_asserted_cause_is_not():
+    facts = summ.build_facts(_state())
+    base = "Reading comprehension fell from about 70% to about 52% [PAT-1A2B3C4D]. "
+    for ok in ("No cause has been identified.", "No known cause has been identified [R12].", "The cause is unknown.",
+               "A cause has not been identified.", "The teacher notes that no cause has been established."):
+        assert summ.verify(base + ok, facts) == [], ok
+    for bad in ("The cause is a change of teacher.", "This was caused by a long absence.", "Scores fell because attendance fell.",
+                "Scores fell due to missed lessons.", "The likely cause is anxiety."):
+        assert any("causal" in v for v in summ.verify(base + bad, facts)), bad
+
+
+def test_the_system_prompt_contains_no_ids_a_model_could_copy():
+    # the first real run: the model copied PAT-1A2B3C4D, R12, O3 and D1 from the prompt's own example
+    assert not re.search(r"PAT-[0-9A-Fa-f]{4,}", summ.SYSTEM_PROMPT)
+    assert not re.search(r"\b[ROD]\d+\b", summ.SYSTEM_PROMPT)
+    assert "Never invent an id" in summ.SYSTEM_PROMPT and "character for character" in summ.SYSTEM_PROMPT
+
+
+def test_retry_message_lists_the_valid_ids():
+    facts = summ.build_facts(_state())
+    msg = summ.retry_message(["it cites ids that are not in the sheet: R777"], facts)
+    assert "The only valid ids are: PAT-1A2B3C4D, O5, R12, R99. Copy them exactly." in msg
+    assert summ.retry_message(["x"]).endswith("Rewrite it, fixing every point.")                 # still works without facts
+
+
+def test_pattern_id_typos_are_repaired_only_when_unambiguous():
+    f = summ.Facts("", {"PAT-4FEE97CF", "PAT-4FEE97CA", "PAT-AAAAAAAA", "R12"}, ["PAT-4FEE97CF", "PAT-4FEE97CA", "PAT-AAAAAAAA"])
+    text, fixed = summ.repair_citations("Fell [PAT-AAAAAAA] and [PAT-4FEE97C] and [R13] and [PAT-4FEE97CF].", f)
+    assert "[PAT-AAAAAAAA]" in text and fixed == [("PAT-AAAAAAA", "PAT-AAAAAAAA")]
+    assert "[PAT-4FEE97C]" in text                       # two real ids are equally close: not guessed
+    assert "[R13]" in text                               # record ids are never guessed
+    assert summ.repair_citations("see [PAT-9999999]", f)[1] == []   # nothing within distance 2
+
+
+def test_clip_sentences_never_cuts_mid_sentence():
+    long = "First sentence here. " + "Second sentence is a little longer than the first one. " * 12 + "Last."
+    clipped = summ.clip_sentences(long, 200)
+    assert len(clipped) <= 200 and clipped.endswith(".") and clipped.startswith("First sentence here.")
+    assert summ.clip_sentences("short text.", 200) == "short text."
+    assert summ.clip_sentences("x" * 500, 100).endswith("…") is False or len(summ.clip_sentences("x" * 500, 100)) <= 101
+
+
+def test_labels_in_a_document_are_withheld_like_labels_in_notes():
+    text = "---\nterm: 2025-T2\ntitle: Note\n---\nBrian sat the paper on Monday. He is a lazy student. Only 25 minutes were available."
+    ex = doc_excerpt(text, "/x/a.md")
+    assert "lazy" not in ex["excerpt"] and "25 minutes" in ex["excerpt"] and ex["characterising_language"] is True
+    assert "withheld" in ex["excerpt"]
+    clean = doc_excerpt("Plain note. Nothing unusual.", "/x/b.md")
+    assert clean["characterising_language"] is False and "withheld" not in clean["excerpt"]
