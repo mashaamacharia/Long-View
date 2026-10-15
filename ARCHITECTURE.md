@@ -20,14 +20,15 @@ gather more evidence, and writes the teacher-facing summary.
    scores are excluded from the trend and reported as an `anomaly`, together with same-term teacher
    observations and any attendance dip. The engine flags; it does not explain.
 3. **Trend.** Average within each term, then Theil-Sen slope, Mann-Kendall significance
-   (p < 0.05), and an early-vs-late change of at least 8 points. Both gates are required: a
-   statistically significant but tiny drift is not reported, and a large swing in an erratic series
-   is not reported. Term positions are real calendar positions, so missing terms are never
-   interpolated.
+   (p < 0.05), a sanity floor of 0.5 points/term on the slope, and an early-vs-late change of at
+   least 8 points. All three gates are required: a statistically significant but tiny drift is not
+   reported, and a large swing in an erratic series is not reported. Term positions are real
+   calendar positions, so missing terms are never interpolated.
 4. **Sufficiency.** At least 4 terms and 8 scored records, otherwise the output is an
    `insufficient` pattern that lists what is missing.
 5. **Conflicts.** (a) Quiz vs coursework averages in the same skill differing by 20+ points,
-   consistently across terms. (b) Teacher notes containing trait or ability labels, set against the
+   consistently across terms (≥6 records per side, ≥4 shared terms, the gap pointing the same way
+   in ≥70% of them). (b) Teacher notes containing trait or ability labels, set against the
    measured record. Conflicts are surfaced for the teacher, never resolved.
 
 **Evidence strength** describes the data, not the learner: `high` needs 6+ terms, 15+ records, 2+
@@ -93,6 +94,25 @@ path is exercised on SQLite in tests and should be checked once against Postgres
 **Two views of the same evidence.** The agent's `get_evidence` is sampled and withholds notes
 that contain labels; the teacher's review view (`app/services/evidence.py`, same code, different
 arguments) is complete and shows the original notes, marked `characterising_language`.
+
+## Dashboard surface (`frontend/` + `app/api/`)
+
+A React 18 + Vite SPA served by nginx in Docker; nginx proxies `/api` to the backend with SSE
+buffering off, so the browser talks to one origin and the default flow needs no CORS. The UI has
+four surfaces, each pinned to its endpoints:
+
+| Surface               | Endpoints                                                                                                   | Notes                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Learner directory     | `GET /api/learners`                                                                                          | search + grade filter over the seeded learners                                              |
+| Learner profile       | `GET /api/learners/{id}`, `/records`, `/profile`                                                             | charts are computed client-side from records; `/profile` shows only teacher-approved findings |
+| Ask the AI            | `POST /api/runs`, `GET /api/runs/{id}` (poll), `GET /api/runs/{id}/stream` (SSE)                             | streams every step live; `waiting_for_teacher` pauses the UI and links to Reviews            |
+| Teacher Reviews       | `GET /api/reviews[?status]`, `GET /api/reviews/{id}`, `POST /api/reviews/{id}/decision`                      | full unredacted evidence, then approve / reject / more-evidence as `teacher_id` (no login)   |
+
+Writes from the dashboard are deliberately few: a teacher-entered record
+(`POST /api/learners/{id}/records` — validated server-side against the model's `kind` set and
+`YYYY-Tn` term format) and a review decision. Everything else is read-only; the profile itself is
+still only writable through the approval gate. There is no authentication in demo scope (see the
+approval section) — the UI supplies `teacher_id = "MK"` from the sidebar identity.
 
 ## The agent (`backend/app/agent/`)
 
