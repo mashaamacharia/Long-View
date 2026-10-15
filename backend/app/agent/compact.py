@@ -5,6 +5,10 @@ import json
 import re
 from typing import Any
 
+from app.mcp_server.analysis.conflicts import has_label_language
+
+WITHHELD_SENTENCE = "[a sentence characterising the learner was withheld]"
+
 
 def _trim(s: str | None, n: int) -> str:
     s = " ".join((s or "").split())
@@ -46,7 +50,12 @@ def doc_excerpt(text: str, path: str, limit: int = 700) -> dict[str, Any]:
                 k, v = line.split(":", 1)
                 meta[k.strip()] = v.strip()
         body = m.group(2)
-    return {"path": path, "term": meta.get("term"), "title": meta.get("title"), "excerpt": _trim(body, limit)}
+    sentences = re.split(r"(?<=[.!?])\s+", " ".join(body.split()))
+    labelled = any(has_label_language(x) for x in sentences)
+    if labelled:   # same rule as teacher notes: a label in a source is reported as existing, never repeated
+        sentences = [WITHHELD_SENTENCE if has_label_language(x) else x for x in sentences]
+    return {"path": path, "term": meta.get("term"), "title": meta.get("title"),
+            "excerpt": _trim(" ".join(sentences), limit), "characterising_language": labelled}
 
 
 def for_llm(res: dict[str, Any], limit: int = 1800) -> str:

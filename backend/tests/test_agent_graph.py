@@ -1,6 +1,7 @@
 """The agent end to end: tools over MCP, the review gate, pause/resume, fallbacks and containment.
 The model is scripted (no Ollama in CI); the MCP server, database, router and runtime are real."""
 import asyncio
+import re
 from pathlib import Path
 
 import pytest
@@ -118,7 +119,7 @@ def test_without_a_model_the_run_still_meets_its_checks(agent_env, eid):
             assert result["summary_source"] == "template" and result["llm"]["available"] is False
             assert any(x.startswith("llm_unavailable") for x in result["fallbacks"])
             st = await final_state(agent_env, rid)
-            assert summ.verify(st["summary"], summ.build_facts(st)) == []   # the fallback passes its own verifier
+            assert summ.verify(st["summary"], summ.build_facts(st), causal=False) == []   # the fallback passes its own verifier
         else:
             st = await final_state(agent_env, rid)
             assert st["llm_ok"] is False and any(x.startswith("llm_unavailable") for x in st["fallbacks"])
@@ -202,7 +203,37 @@ def test_two_bad_drafts_fall_back_to_the_template(agent_env):
         assert any("failed verification twice" in x for x in result["fallbacks"])
         assert "lazy" not in result["summary"].lower() and "anxiety" not in result["summary"].lower()
         st = await final_state(agent_env, rid)
-        assert summ.verify(result["summary"], summ.build_facts(st)) == []
+        assert summ.verify(result["summary"], summ.build_facts(st), causal=False) == []
+    asyncio.run(main())
+
+
+def test_the_template_keeps_the_fact_that_matters_from_a_document(agent_env):
+    agent_env.llm = down_llm()
+
+    async def main():
+        rid = await go(agent_env, "L1043", TASKS["EVAL-02"]["request"])
+        summary = row(agent_env, rid)[1]["summary"]
+        assert "25 minutes were available instead of the standard 60" in summary    # the old 240-character cut dropped this
+        doc_line = [l for l in summary.splitlines() if l.startswith("Document [D1]")][0]
+        assert doc_line.rstrip().endswith(('."', '…"'))                              # ends at a sentence, inside the quote marks
+    asyncio.run(main())
+
+
+def test_a_mistyped_pattern_id_is_repaired_and_recorded(agent_env):
+    def fn(messages, tools, json_mode):
+        if tools:
+            return ideal_fn(messages, tools, json_mode)
+        good = _summary_from_sheet(messages[1]["content"])
+        return re.sub(r"\[(PAT-[0-9A-F]{7})[0-9A-F]\]", r"[\1]", good)            # drop the last character of every pattern id
+    agent_env.llm = ScriptedLLM(fn)
+
+    async def main():
+        rid = await go(agent_env, "L1043", TASKS["EVAL-02"]["request"])
+        _, result = row(agent_env, rid)
+        assert result["summary_source"] == "llm" and len(agent_env.llm.summary_calls) == 1      # accepted first time, no retry
+        (fix,) = result["verification"]["repaired_citations"]
+        assert fix["wrote"] != fix["fixed_to"] and fix["fixed_to"] in result["summary"]
+        assert any(e.detail and e.detail.get("repaired_citations") for e in events(agent_env, rid, "llm"))
     asyncio.run(main())
 
 
